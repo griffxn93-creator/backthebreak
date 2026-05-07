@@ -49,6 +49,7 @@ def bot_loop():
 
     while True:
         try:
+            print("Running scanner loop...")
             alerts = scan_scores()
 
             for score in alerts:
