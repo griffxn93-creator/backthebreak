@@ -2,61 +2,56 @@ import os
 import time
 import threading
 import requests
+from bs4 import BeautifulSoup
 from flask import Flask
-
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-
-app = Flask(__name__)
-
+app = Flask(name)
+ALERTED = set()
 @app.route("/")
 def home():
-    return "Sports trading alert bot is running."
-
-def send_discord_alert(message: str):
-    if not DISCORD_WEBHOOK_URL:
-        print("Missing DISCORD_WEBHOOK_URL")
-        return
-
-    response = requests.post(
-        DISCORD_WEBHOOK_URL,
-        json={"content": message},
-        timeout=10
-    )
-
-    if response.status_code not in (200, 204):
-        print("Discord error:", response.status_code, response.text)
-
+return "BackTheBreak score-zone bot is running."
+def send_discord_alert(message):
+requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=10)
+def fetch_flashscore_page():
+url = "https://www.flashscore.com/tennis/"
+headers = {
+"User-Agent": "Mozilla/5.0"
+}
+r = requests.get(url, headers=headers, timeout=15)
+r.raise_for_status()
+return r.text
+def scan_scores():
+html = fetch_flashscore_page()
+soup = BeautifulSoup(html, "html.parser")
+text = soup.get_text(" ", strip=True)
+# This is basic v1 detection.
+# We’ll improve selectors after seeing what Render logs show.
+zones = ["2 2", "3 3", "4 4"]
+alerts = []
+for zone in zones:
+if zone in text:
+alerts.append(zone.replace(" ", "-"))
+return alerts
 def bot_loop():
-    send_discord_alert("✅ BackTheBreak bot live. Scanner starting.")
-
-    while True:
-        # TEST DATA — later this will come from live scores
-        match = {
-            "name": "Test Player A vs Test Player B",
-            "score": "3-3",
-            "server": "Player B",
-            "point_score": "15-30",
-            "player_a_odds": 1.72,
-            "player_b_odds": 2.20,
-        }
-
-        score_zone = match["score"] in ["2-2", "3-3", "4-4"]
-        pressure = match["point_score"] in ["0-30", "15-30", "30-40", "40-A"]
-
-        if score_zone and pressure:
-            send_discord_alert(
-                f"🎾 WATCH — possible Back The Break setup\n\n"
-                f"Match: {match['name']}\n"
-                f"Score: {match['score']}\n"
-                f"Server: {match['server']}\n"
-                f"Point score: {match['point_score']}\n"
-                f"Odds: {match['player_a_odds']} / {match['player_b_odds']}\n\n"
-                f"Action: WATCH — wait for confirmed break."
-            )
-
-        time.sleep(300)
+send_discord_alert("✅ BackTheBreak score-zone bot started.")
+while True:
+try:
+alerts = scan_scores()
+for score in alerts:
+key = f"score-zone-{score}"
+if key not in ALERTED:
+ALERTED.add(key)
+send_discord_alert(
+f"🎾 SCORE ZONE ALERT\n\n"
+f"A tennis match appears to be at {score}.\n\n"
+f"Action: Open Flashscore + Betfair.\n"
+f"Wait for pressure on serve — do NOT enter until a break happens."
+)
+print("Scan complete:", alerts)
+except Exception as e:
+print("Scanner error:", str(e))
+time.sleep(60)
 threading.Thread(target=bot_loop, daemon=True).start()
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+if name == "main":
+port = int(os.getenv("PORT", 10000))
+app.run(host="0.0.0.0", port=port)
