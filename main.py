@@ -19,7 +19,7 @@ def send_discord_alert(message):
     requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=10)
 
 def fetch_flashscore_page():
-    url = "https://www.flashscore.com/tennis/"
+    url = "https://www.tennisexplorer.com/matches/""
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -65,7 +65,8 @@ def bot_loop():
                         f"Wait for pressure on serve — do NOT enter until a break happens."
                     )
 
-            print("Scan complete:", alerts)
+            print("Page scanned")
+print("Alerts found:", alerts)
 
         except Exception as e:
             print("Scanner error:", str(e))
